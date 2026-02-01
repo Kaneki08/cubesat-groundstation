@@ -1,73 +1,97 @@
-# React + TypeScript + Vite
+# CubeSat Groundstation UI
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Beginner-friendly guide to run the website locally.
 
-Currently, two official plugins are available:
+## Table of contents
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- [What you need](#what-you-need)
+- [Install the tools](#install-the-tools)
+- [Get the project](#get-the-project)
+- [Install the project dependencies](#install-the-project-dependencies)
+- [Run the website](#run-the-website)
+- [See your changes](#see-your-changes)
+- [Common problems](#common-problems)
 
-## React Compiler
+## What you need
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+You only need two things on your computer:
 
-## Expanding the ESLint configuration
+- **Node.js** (this also installs **npm**)
+- **Git** (to download the project)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+That’s it. You do **not** need to install React or Vite by hand — the project installs them for you.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Install the tools
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### macOS
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+1. Install Node.js (includes npm):
+   - Go to https://nodejs.org
+   - Download the **LTS** version and install it.
+2. Install Git:
+   - Open the **Terminal** app and run:
+     - `git --version`
+   - If it asks to install, accept the prompt.
+
+### Windows
+
+1. Install Node.js (includes npm):
+   - Go to https://nodejs.org
+   - Download the **LTS** version and install it.
+2. Install Git:
+   - Go to https://git-scm.com/downloads and install it.
+
+### Linux
+
+1. Install Node.js (includes npm):
+   - Use your package manager or follow https://nodejs.org
+2. Install Git:
+   - `sudo apt install git` (Ubuntu/Debian)
+
+## Get the project
+
+1. Open **Terminal** (macOS/Linux) or **PowerShell** (Windows).
+2. Go to where you keep your projects, then download this one:
+   - `git clone https://github.com/Kaneki08/cubesat-groundstation.git`
+3. Move into the project folder:
+   - `cd cubesat-groundstation`
+
+## Install the project dependencies
+
+Run this **once** (it may take a minute):
+
+- `npm install`
+
+This downloads everything the project needs (React, Vite, Tailwind, etc.).
+
+## Run the website
+
+Start the development server:
+
+- `npm run dev`
+
+You should see a message like:
+
+```
+Local: http://localhost:5173/
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Open that link in your browser.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## See your changes
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- Leave the server running.
+- Edit files in the `src/` folder.
+- Your browser updates automatically when you save.
+
+## Common problems
+
+**“command not found: npm”**
+- Node.js is not installed. Install the LTS version from https://nodejs.org.
+
+**Port already in use**
+- Something else is using the port. Stop the other app or run:
+  - `npm run dev -- --port 5174`
+
+**Still stuck?**
+- Ask in the team chat and share the exact error message.
