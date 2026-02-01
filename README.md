@@ -55,10 +55,12 @@ That’s it. You do **not** need to install React or Vite by hand — the projec
    - `git clone https://github.com/Kaneki08/cubesat-groundstation.git`
 3. Move into the project folder:
    - `cd cubesat-groundstation`
+4. Move into the UI folder:
+   - `cd ui`
 
 ## Install the project dependencies
 
-Run this **once** (it may take a minute):
+Run this **once** from inside the `ui/` folder (it may take a minute):
 
 - `npm install`
 
@@ -66,7 +68,7 @@ This downloads everything the project needs (React, Vite, Tailwind, etc.).
 
 ## Run the website
 
-Start the development server:
+Make sure you're in the `ui/` folder, then start the development server:
 
 - `npm run dev`
 
@@ -81,7 +83,7 @@ Open that link in your browser.
 ## See your changes
 
 - Leave the server running.
-- Edit files in the `src/` folder.
+- Edit files in the `ui/src/` folder.
 - Your browser updates automatically when you save.
 
 ## Common problems
