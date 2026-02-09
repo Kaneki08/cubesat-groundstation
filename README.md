@@ -1,6 +1,17 @@
-# CubeSat Groundstation UI
+# CubeSat Ground Station
 
-Beginner-friendly guide to run the website locally.
+Beginner-friendly guide to run the complete system on your computer.
+
+This project has two parts that work together:
+- **Backend Server** (runs on port 8000) — Streams live telemetry data
+- **Frontend UI** (runs on port 5173) — Website to view the data
+
+**You need to start the server first, then the UI in a new terminal.**
+
+## Quick start
+
+1. **Start the backend server** — [Follow the server README](./server/README.md)
+2. **In a new terminal, start the UI** — [Follow the UI instructions below](#install-the-tools)
 
 ## Table of contents
 
