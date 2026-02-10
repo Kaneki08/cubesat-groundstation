@@ -29,6 +29,14 @@ node_modules/
 # build output
 dist/
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+venv/
+.venv/
+
 # environment variables
 .env
 .env.local
