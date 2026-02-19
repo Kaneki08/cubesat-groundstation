@@ -17,7 +17,16 @@ The server streams live CubeSat telemetry data to the website. You need to run t
 
 You only need **Python 3.8 or newer**.
 
-(You should have already downloaded the project and navigated to the `server/` folder from the root README.)
+You should have already downloaded the project from the main README.
+
+## Quick setup checklist
+
+1. Open Terminal/PowerShell
+2. Navigate to the project: `cd cubesat-groundstation`
+3. Go to the server folder: `cd server`
+4. Create a virtual environment (see below)
+5. Install dependencies (see below)
+6. Run the server (see below)
 
 ## Create a virtual environment
 
@@ -49,7 +58,12 @@ With `(venv)` showing in your terminal, run:
 pip install -r requirements.txt
 ```
 
-This downloads FastAPI and all the server needs.
+This downloads:
+
+- **FastAPI** — web framework for the server
+- **Uvicorn** — runs the server
+- **NumPy** — processes IQ signal data
+- **WebSockets** — real-time communication with the UI
 
 ## Run the server
 
@@ -78,20 +92,23 @@ curl http://127.0.0.1:8000/health
 You should see:
 
 ```json
-{"status":"ok"}
+{ "status": "ok" }
 ```
 
 ## Common problems
 
 **"command not found: python3"**
+
 - Python is not installed. Get it from https://www.python.org/downloads/
 
 **"No module named 'fastapi'"**
+
 - Did you activate the virtual environment? Look for `(venv)` at the start of your terminal
 - Run `source venv/bin/activate` (macOS/Linux) or `venv\Scripts\activate` (Windows)
 - Then run `pip install -r requirements.txt` again
 
 **"Address already in use"**
+
 - The port 8000 is taken by something else
 - Stop this server and try:
   ```bash
@@ -99,7 +116,9 @@ You should see:
   ```
 
 **"Connection refused" errors**
+
 - Make sure the server is running. You should see the "Uvicorn running" message
 
 **Still stuck?**
+
 - Ask in the team chat with the exact error message

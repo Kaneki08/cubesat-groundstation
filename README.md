@@ -3,10 +3,17 @@
 Beginner-friendly guide to run the complete system on your computer.
 
 This project has two parts that work together:
-- **Backend Server** (runs on port 8000) — Streams live telemetry data
-- **Frontend UI** (runs on port 5173) — Website to view the data
+
+- **Backend Server** (runs on port 8000) — Simulates CubeSat telemetry and processes IQ signal data
+- **Frontend UI** (runs on port 5173) — Dashboard to visualize telemetry, signals, and data
 
 **You need to start the server first, then the UI in a new terminal.**
+
+## What the system does
+
+- **Telemetry Dashboard** — View power, orientation, and radio status
+- **Waterfall Plot** — Real-time FFT visualization of IQ signal data
+- **Live Updates** — Data streams via WebSocket in real time
 
 ## Quick start
 
@@ -100,11 +107,40 @@ Open that link in your browser.
 ## Common problems
 
 **“command not found: npm”**
+
 - Node.js is not installed. Install the LTS version from https://nodejs.org.
 
 **Port already in use**
+
 - Something else is using the port. Stop the other app or run:
   - `npm run dev -- --port 5174`
 
 **Still stuck?**
+
 - Ask in the team chat and share the exact error message.
+
+## Project structure
+
+```
+cubesat-groundstation-ui/
+├── server/              (Python backend with FastAPI)
+│   ├── app_fastapi.py   (main server code)
+│   ├── requirements.txt  (Python packages)
+│   ├── *.iq             (test signal files)
+│   └── README.md        (server setup guide)
+│
+├── ui/                  (React + TypeScript frontend)
+│   ├── src/             (source code)
+│   ├── public/          (static files)
+│   ├── package.json     (JavaScript packages)
+│   └── vite.config.ts   (build configuration)
+│
+└── README.md            (this file)
+```
+
+## How it works
+
+1. **Server** reads IQ signal files and simulates telemetry data
+2. **Server** sends updates via WebSocket to the frontend
+3. **UI** displays telemetry (power, orientation, radio) and waterfall plot (FFT visualization)
+4. **Both run locally** — no internet needed!
