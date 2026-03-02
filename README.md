@@ -54,13 +54,9 @@ If you need to install them, follow the detailed guides in the sections below:
 
 From the project root, run:
 
-```bash or seeing errors?
-
-If you see an error about missing dependencies, follow the complete setup guide below starting with [Step 1: Install Python](#step-1-install-python).
-
-## Complete setup guide
-
-Follow these steps if this is your first time or if the quick start didn't work
+```bash
+chmod +x dev.sh  # Only needed once
+./dev.sh
 ```
 
 **What this does:**
@@ -73,10 +69,17 @@ Open your browser to: **http://127.0.0.1:8000**
 
 Press `Ctrl+C` to stop.
 
-### First time? Follow the setup guide below
+### First time or seeing errors?
 
-If Step 1: Install Python](#step-1-install-python)
+If you see an error about missing dependencies, follow the complete setup guide below starting with [Step 1: Install Python](#step-1-install-python).
 
+## Complete setup guide
+
+Follow these steps if this is your first time or if the quick start didn't work.
+
+## Table of contents
+
+- [Step 1: Install Python](#step-1-install-python)
 - [Step 2: Install Node.js](#step-2-install-nodejs)
 - [Step 3: Install Git](#step-3-install-git)
 - [Step 4: Get the project](#step-4-get-the-project)
@@ -200,63 +203,27 @@ You now have all the code!
 
 ### Create Python virtual environment
 
-From the project root, go to the server folder:
+The backend requires Python packages to be installed in a virtual environment.
 
-```bash
-cd server
-```
+**Follow the complete backend setup guide:** [server/README.md](server/README.md)
 
-Create a virtual environment:
+This guide covers:
 
-**macOS/Linux:**
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
-
-**Windows:**
-
-```bash
-python -m venv venv
-venv\Scripts\activate
-```
-
-You should see `(venv)` at the start of your terminal line.
-
-### Install Python packages
-
-With the virtual environment active, run:
-
-```bash
-pip install -r requirements.txt
-```
-
-This installs FastAPI, Uvicorn, NumPy, and WebSockets.
-
-**Full backend guide:** See [server/README.md](server/README.md)
+- Creating a Python virtual environment
+- Installing FastAPI, Uvicorn, NumPy, and WebSockets
+- Running the server
 
 ## Step 6: Set up the frontend
 
-### Install JavaScript packages
+The frontend requires Node.js packages to be installed.
 
-From the server folder, go back and into the UI folder:
+**Follow the complete frontend setup guide:** [ui/README.md](ui/README.md)
 
-```bash
-cd ../ui
-```
+This guide covers:
 
-Install all dependencies:
-
-```bash
-npm install
-```
-
-This installs React, TypeScript, Vite, Tailwind, and other UI dependencies.
-
-**Full frontend guide:** See [ui/README.md](ui/README.md)
-
-## Step 7: Run everything
+- Installing React, TypeScript, Vite, and Tailwind CSS
+- Building the UI for production
+- Running in development mode
 
 Now that everything is installed, go back to the project root:
 
