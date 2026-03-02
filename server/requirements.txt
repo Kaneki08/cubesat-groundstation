@@ -1,4 +1,4 @@
-fastapi
+fastapi[standard]
 uvicorn[standard]
 numpy
 websockets == 12.0

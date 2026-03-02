@@ -1,18 +1,19 @@
-// Dashboard.tsx
-// This page shows the main dashboard grid (3 columns) and pulls live telemetry via WebSocket.
-
-// Import React hooks (needed for live state + side effects)
-import { useEffect, useState } from "react";
-
-// Import the reusable Card component
+import { useEffect, useRef, useState } from "react";
 import Card from "../Components/Card";
 
-/**
- * TypeScript "shape" for the JSON we expect from the Python server.
- * Everything is optional (with ?) so the UI doesn't crash if a field is missing.
- *
- * You can expand this later as your telemetry grows.
- */
+// WebSocket URLs
+const WS_PROTOCOL = window.location.protocol === "https:" ? "wss" : "ws";
+const WS_BASE = `${WS_PROTOCOL}://${window.location.host}`;
+const WS_TELEMETRY = `${WS_BASE}/ws/telemetry`;
+const WS_WATERFALL = `${WS_BASE}/ws/waterfall`;
+
+// Waterfall config
+const BINS = 512;
+const ROWS = 240;
+const DB_MIN = -80;
+const DB_MAX = -10;
+const USE_FAKE_TELEMETRY = false;
+
 type TelemetryPacket = {
   power?: {
     battery_voltage?: number;
@@ -31,60 +32,150 @@ type TelemetryPacket = {
   };
 };
 
+// SDR-style color mapping
+function sdrColor(t: number): [number, number, number] {
+  if (t < 0) t = 0;
+  if (t > 1) t = 1;
+
+  const r = Math.floor(255 * t);
+  const g = Math.floor(255 * Math.min(1, t * 1.2));
+  const b = Math.floor(255 * (1 - t));
+  return [r, g, b];
+}
+
+// Small helper
+function clamp(n: number, lo: number, hi: number) {
+  return Math.max(lo, Math.min(hi, n));
+}
+
 export default function Dashboard() {
-  // Holds the latest telemetry packet we received from the server
+  // ---- Header online status (ONE place) ----
+  const [status, setStatus] = useState<"offline" | "connecting" | "online">(
+    USE_FAKE_TELEMETRY ? "online" : "connecting",
+  );
+
+  // ---- Telemetry state (can be real WS or fake) ----
   const [telemetry, setTelemetry] = useState<TelemetryPacket | null>(null);
 
-  // Simple status label so you can see if the client connected
-  const [wsStatus, setWsStatus] = useState<"disconnected" | "connecting" | "connected" >("disconnected");
+  // ---- Waterfall ----
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  /**
-   * useEffect runs after the component renders.
-   * With [] at the end, it runs only ONCE when the page loads.
-   * Perfect for opening a WebSocket connection.
-   */
+  // Fake telemetry generator (simple + nice looking)
   useEffect(() => {
-    setWsStatus("connecting");
+    if (!USE_FAKE_TELEMETRY) return;
 
-    // For local testing, your backend is on the same machine.
-    // Later, if server is on another computer/pi, replace localhost with its LAN IP.
-    const ws = new WebSocket("ws://localhost:8765/ws/telemetry");
+    const t0 = Date.now();
+    const id = setInterval(() => {
+      const t = (Date.now() - t0) / 1000;
 
-    // Fires when the socket successfully connects
-    ws.onopen = () => {
-      setWsStatus("connected");
+      // smooth variations
+      const batt = 7.6 + 0.25 * Math.sin(t / 6);
+      const solar = 1.4 + 0.8 * Math.max(0, Math.sin(t / 4));
+      const temp = 33.5 + 2.0 * Math.sin(t / 10);
+
+      const freq = 437.2 + 0.05 * Math.sin(t / 12);
+      const rssi = -118 + 6 * Math.sin(t / 5);
+      const snr = 3.8 + 2.0 * Math.sin(t / 7);
+
+      const roll = -6 + 1.6 * Math.sin(t / 6);
+      const pitch = -4 + 1.2 * Math.sin(t / 8);
+      const yaw = 30 + 7.0 * Math.sin(t / 9);
+
+      setTelemetry({
+        power: {
+          battery_voltage: Number(batt.toFixed(2)),
+          solar_current: Number(solar.toFixed(2)),
+          battery_temp_c: Number(temp.toFixed(1)),
+        },
+        radio: {
+          frequency_mhz: Number(freq.toFixed(2)),
+          rssi_dbm: Math.round(rssi),
+          snr_db: Number(snr.toFixed(1)),
+        },
+        orientation: {
+          roll_deg: Number(roll.toFixed(1)),
+          pitch_deg: Number(pitch.toFixed(1)),
+          yaw_deg: Number(yaw.toFixed(1)),
+        },
+      });
+    }, 250);
+
+    return () => clearInterval(id);
+  }, []);
+
+  // Real telemetry WS (only if you flip USE_FAKE_TELEMETRY = false)
+  useEffect(() => {
+    if (USE_FAKE_TELEMETRY) return;
+    const ws = new WebSocket(WS_TELEMETRY);
+
+    ws.onopen = () => setStatus("online");
+    ws.onclose = () => {
+      setStatus("offline");
+      setTelemetry(null);
+    };
+    ws.onerror = () => {
+      setStatus("offline");
+      setTelemetry(null);
     };
 
-    // Fires whenever the server sends us a message
     ws.onmessage = (event) => {
       try {
-        // event.data is a string (JSON)
         const data = JSON.parse(event.data) as TelemetryPacket;
         setTelemetry(data);
-      } catch (err) {
-        console.error("Failed to parse telemetry JSON:", err);
+      } catch (e) {
+        console.error("Telemetry parse error:", e);
       }
     };
 
-    // Fires if there's an error (network issue, wrong URL, server not running, etc.)
-    ws.onerror = () => {
-      setWsStatus("disconnected");
-    };
-
-    // Fires when the socket closes (server stops, tab closes, refresh, etc.)
-    ws.onclose = () => {
-      setWsStatus("disconnected");
-    };
-
-    // Cleanup function: runs when Dashboard unmounts or hot-reloads.
-    // Prevents "ghost" sockets staying open.
-    return () => {
-      ws.close();
-    };
+    return () => ws.close();
   }, []);
 
-  // Convenience values (so JSX stays clean).
-  // "??" means: if left side is null/undefined, use the right side.
+  // Waterfall WS (this can be your “one real connection” if you want)
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    canvas.width = BINS;
+    canvas.height = ROWS;
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, BINS, ROWS);
+
+    const ws = new WebSocket(WS_WATERFALL);
+    ws.binaryType = "arraybuffer";
+
+    ws.onopen = () => setStatus("online");
+    ws.onclose = () => setStatus("offline");
+    ws.onerror = () => setStatus("offline");
+
+    ws.onmessage = (event) => {
+      const row = new Float32Array(event.data);
+      if (row.length !== BINS) return;
+
+      // scroll up one pixel row
+      ctx.drawImage(canvas, 0, -1);
+
+      const img = ctx.createImageData(BINS, 1);
+      for (let x = 0; x < BINS; x++) {
+        const db = row[x];
+        const t = clamp((db - DB_MIN) / (DB_MAX - DB_MIN), 0, 1);
+        const [R, G, B] = sdrColor(t);
+        const p = x * 4;
+        img.data[p] = R;
+        img.data[p + 1] = G;
+        img.data[p + 2] = B;
+        img.data[p + 3] = 255;
+      }
+
+      ctx.putImageData(img, 0, ROWS - 1);
+    };
+
+    return () => ws.close();
+  }, []);
+
+  // Values
   const batteryV = telemetry?.power?.battery_voltage ?? null;
   const solarA = telemetry?.power?.solar_current ?? null;
   const battTemp = telemetry?.power?.battery_temp_c ?? null;
@@ -97,130 +188,149 @@ export default function Dashboard() {
   const pitch = telemetry?.orientation?.pitch_deg ?? null;
   const yaw = telemetry?.orientation?.yaw_deg ?? null;
 
+  // Header pill styling
+  const pill =
+    status === "online"
+      ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+      : status === "connecting"
+        ? "bg-yellow-500/15 text-yellow-300 border-yellow-500/30"
+        : "bg-red-500/15 text-red-300 border-red-500/30";
+
+  const label =
+    status === "online"
+      ? "Online"
+      : status === "connecting"
+        ? "Connecting"
+        : "Offline";
+
   return (
-    // Outer grid: 3 columns across the dashboard
-    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-      {/* ================= LEFT COLUMN ================= */}
-      {/* This div is a COLUMN (layout container) */}
-      <div className="space-y-6 md:col-span-2 lg:col-span-1">
-        <Card title="Satellite Position">
-          {/* Placeholder for orbit visualization */}
-          <div className="h-56 rounded-xl bg-slate-950/60 flex items-center justify-center text-slate-500">
-            Orbital visualization placeholder
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
+      {/* Darker header */}
+      <div className="sticky top-0 z-10 border-b border-slate-800 bg-slate-950/80 backdrop-blur">
+        <div className="mx-auto max-w-7xl px-4 py-4 flex items-start justify-between">
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-slate-100">
+              CubeSat Ground Station
+            </h1>
+            <p className="text-sm text-slate-400 mt-1">
+              Real-time telemetry and signal monitoring
+            </p>
           </div>
 
-          {/* Position stats */}
-          <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <div className="text-slate-500">Latitude</div>
-              <div>34.2° N</div>
-            </div>
-            <div>
-              <div className="text-slate-500">Longitude</div>
-              <div>118.5° W</div>
-            </div>
-            <div>
-              <div className="text-slate-500">Altitude</div>
-              <div>412 km</div>
-            </div>
-            <div>
-              <div className="text-slate-500">Velocity</div>
-              <div>7.6 km/s</div>
-            </div>
+          <div
+            className={`select-none rounded-full border px-3 py-1 text-xs font-medium ${pill}`}
+          >
+            {label}
           </div>
-
-          {/* Optional: show WS status here so you know it's connected */}
-          <div className="mt-4 text-xs text-slate-500">
-            WebSocket:{" "}
-            <span
-              className={
-                wsStatus === "connected"
-                  ? "text-emerald-400"
-                  : wsStatus === "connecting"
-                  ? "text-yellow-300"
-                  : "text-red-400"
-              }
-            >
-              {wsStatus}
-            </span>
-          </div>
-        </Card>
+        </div>
       </div>
 
-      {/* ================= MIDDLE COLUMN ================= */}
-      <div className="space-y-6">
-        <Card title="Power">
-          <div className="text-sm space-y-2">
-            <div className="flex justify-between">
-              <span>Battery Voltage</span>
-              <span className="text-emerald-400">
-                {batteryV !== null ? `${batteryV} V` : "7.4 V"}
-              </span>
+      {/* Content */}
+      <div className="mx-auto max-w-7xl px-4 py-4 space-y-4">
+        {/* TOP: Waterfall */}
+        <Card title="RF Waterfall / Spectrum">
+          <div className="mt-1 flex items-center justify-between text-xs text-slate-400">
+            <div>
+              dB scale: {DB_MIN} to {DB_MAX}
             </div>
-            <div className="flex justify-between">
-              <span>Solar Current</span>
-              <span className="text-emerald-400">
-                {solarA !== null ? `${solarA} A` : "1.2 A"}
-              </span>
+            <div className="text-slate-500">
+              Source: {USE_FAKE_TELEMETRY ? "Demo data" : "Live data"}
             </div>
-            <div className="flex justify-between">
-              <span>Battery Temp</span>
-              <span>{battTemp !== null ? `${battTemp} °C` : "18 °C"}</span>
+          </div>
+
+          <div className="mt-3 flex">
+            {/* Y axis */}
+            <div className="flex flex-col justify-between pr-2 text-xs text-slate-400">
+              <div>20 s</div>
+              <div>15 s</div>
+              <div>10 s</div>
+              <div>5 s</div>
+              <div>0 s</div>
+            </div>
+
+            <div className="w-full">
+              <div className="h-80 w-full overflow-hidden rounded-xl border border-slate-800 bg-black">
+                <canvas ref={canvasRef} className="h-full w-full" />
+              </div>
+
+              {/* X axis */}
+              <div className="mt-2 flex justify-between text-xs text-slate-400 px-1">
+                <span>-15</span>
+                <span>-10</span>
+                <span>-5</span>
+                <span>0</span>
+                <span>5</span>
+                <span>10</span>
+                <span>15</span>
+              </div>
+              <div className="text-center text-xs text-slate-500 mt-1">
+                Frequency (kHz)
+              </div>
             </div>
           </div>
         </Card>
 
-        <Card title="Orientation (ADCS)">
-          <div className="grid grid-cols-3 gap-4 text-sm">
-            <div>
-              <div className="text-slate-500">Roll</div>
-              <div>{roll !== null ? `${roll}°` : "-2.3°"}</div>
+        {/* BOTTOM: changing telemetry */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card title="Power">
+            <div className="text-sm space-y-2">
+              <div className="flex justify-between">
+                <span>Battery Voltage</span>
+                <span className="text-emerald-400">
+                  {batteryV !== null ? `${batteryV} V` : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Solar Current</span>
+                <span className="text-emerald-400">
+                  {solarA !== null ? `${solarA} A` : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Battery Temp</span>
+                <span>{battTemp !== null ? `${battTemp} °C` : "—"}</span>
+              </div>
             </div>
-            <div>
-              <div className="text-slate-500">Pitch</div>
-              <div>{pitch !== null ? `${pitch}°` : "1.8°"}</div>
-            </div>
-            <div>
-              <div className="text-slate-500">Yaw</div>
-              <div>{yaw !== null ? `${yaw}°` : "0.5°"}</div>
-            </div>
-          </div>
-        </Card>
-      </div>
+          </Card>
 
-      {/* ================= RIGHT COLUMN ================= */}
-      <div className="space-y-6">
-        <Card title="Radio Link Status">
-          <div className="text-sm space-y-2">
-            <div className="flex justify-between">
-              <span>Frequency</span>
-              <span>{freqMHz !== null ? `${freqMHz} MHz` : "437.1 MHz"}</span>
+          <Card title="Radio Link">
+            <div className="text-sm space-y-2">
+              <div className="flex justify-between">
+                <span>Frequency</span>
+                <span>{freqMHz !== null ? `${freqMHz} MHz` : "—"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>RSSI</span>
+                <span className="text-emerald-400">
+                  {rssi !== null ? `${rssi} dBm` : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>SNR</span>
+                <span className="text-emerald-400">
+                  {snr !== null ? `${snr} dB` : "—"}
+                </span>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span>RSSI</span>
-              <span className="text-emerald-400">
-                {rssi !== null ? `${rssi} dBm` : "-87 dBm"}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span>SNR</span>
-              <span className="text-emerald-400">
-                {snr !== null ? `${snr} dB` : "12.3 dB"}
-              </span>
-            </div>
-          </div>
-        </Card>
+          </Card>
 
-        <Card title="Alerts">
-          <div className="text-sm space-y-2">
-            <div className="rounded-lg bg-slate-800/60 px-3 py-2">
-              Next pass in 14 minutes
+          <Card title="Orientation (ADCS)">
+            <div className="grid grid-cols-3 gap-4 text-sm">
+              <div>
+                <div className="text-slate-500">Roll</div>
+                <div>{roll !== null ? `${roll}°` : "—"}</div>
+              </div>
+              <div>
+                <div className="text-slate-500">Pitch</div>
+                <div>{pitch !== null ? `${pitch}°` : "—"}</div>
+              </div>
+              <div>
+                <div className="text-slate-500">Yaw</div>
+                <div>{yaw !== null ? `${yaw}°` : "—"}</div>
+              </div>
             </div>
-            <div className="rounded-lg bg-yellow-900/30 px-3 py-2 text-yellow-300">
-              BER elevated
-            </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
       </div>
     </div>
   );

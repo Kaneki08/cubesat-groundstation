@@ -1,13 +1,15 @@
-# CubeSat Ground Station Server
+# CubeSat Ground Station - Server Setup
 
-Beginner-friendly guide to run the backend on your computer.
+**Guide to set up and run the backend (FastAPI + Python server).**
 
-The server streams live CubeSat telemetry data to the website. You need to run this first before starting the UI.
+If you want to run everything together with one command, see the main [README.md](../README.md) and use `./dev.sh`.
+
+This guide is for setting up **only the backend server**.
 
 ## Table of contents
 
 - [What you need](#what-you-need)
-- [Create a virtual environment](#create-a-virtual-environment)
+- [Set up virtual environment](#set-up-virtual-environment)
 - [Install dependencies](#install-dependencies)
 - [Run the server](#run-the-server)
 - [Test it works](#test-it-works)
@@ -15,20 +17,10 @@ The server streams live CubeSat telemetry data to the website. You need to run t
 
 ## What you need
 
-You only need **Python 3.8 or newer**.
+- **Python 3.8 or newer** — Check: `python3 --version`
+- Install from https://www.python.org/downloads/ if needed
 
-You should have already downloaded the project from the main README.
-
-## Quick setup checklist
-
-1. Open Terminal/PowerShell
-2. Navigate to the project: `cd cubesat-groundstation`
-3. Go to the server folder: `cd server`
-4. Create a virtual environment (see below)
-5. Install dependencies (see below)
-6. Run the server (see below)
-
-## Create a virtual environment
+## Set up virtual environment
 
 A virtual environment keeps the server's Python packages separate from other projects.
 
@@ -67,27 +59,32 @@ This downloads:
 
 ## Run the server
 
-Make sure you see `(venv)` in your terminal, then run:
+### Easiest way: Run everything together
+
+From the **project root** (not the server folder), run:
 
 ```bash
-fastapi run app_fastapi.py
+chmod +x dev.sh  # Only needed once
+./dev.sh
 ```
 
-You should see:
+Make sure `(venv)` is activeon http://127.0.0.1:8000
 
-```
-INFO:     Uvicorn running on http://127.0.0.1:8000
-```
-
-**Leave this running and open the UI in a new terminal** (follow the UI README).
+````
 
 ## Test it works
 
-Open a new terminal and run:
+Open your browser and go to:
+
+**http://127.0.0.1:8000**
+
+You should see the CubeSat dashboard with telemetry and waterfall plot.
+
+To test the API endpoint, open a new terminal and run:
 
 ```bash
 curl http://127.0.0.1:8000/health
-```
+````
 
 You should see:
 

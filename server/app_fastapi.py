@@ -7,12 +7,15 @@ from pathlib import Path
 
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 # Create the FastAPI application object
 app = FastAPI()
 
 # Waterfall / IQ config parameters
 BASE_DIR = Path(__file__).resolve().parent
+UI_DIST_DIR = BASE_DIR.parent / "ui" / "dist"
 # IQ_PATH = BASE_DIR / "TestIQData.iq" # path to IQ file 
 IQ_PATH = BASE_DIR / "test-noise-433.iq"
 FFT_SIZE = 1024 # number of samples per FFT
@@ -132,4 +135,27 @@ async def waterfall_ws(websocket: WebSocket):
 
     except WebSocketDisconnect:
         print("Waterfall client disconnected")
+
+
+if (UI_DIST_DIR / "assets").exists():
+    app.mount("/assets", StaticFiles(directory=UI_DIST_DIR / "assets"), name="assets")
+
+
+@app.get("/{full_path:path}")
+def serve_ui(full_path: str):
+    index_html = UI_DIST_DIR / "index.html"
+    if not index_html.exists():
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "UI build not found",
+                "hint": "Run 'cd ui && npm run build' or use './dev.sh' from project root",
+            },
+        )
+
+    requested = UI_DIST_DIR / full_path
+    if full_path and requested.exists() and requested.is_file():
+        return FileResponse(requested)
+
+    return FileResponse(index_html)
 
