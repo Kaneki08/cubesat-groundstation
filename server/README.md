@@ -59,18 +59,23 @@ This downloads:
 
 ## Run the server
 
-### Easiest way: Run everything together
+Make sure you're in the `server/` folder and the virtual environment is activated (you should see `(venv)` at the start of your terminal line).
 
-From the **project root** (not the server folder), run:
+Run the FastAPI server:
 
 ```bash
-chmod +x dev.sh  # Only needed once
-./dev.sh
+fastapi run app_fastapi.py
 ```
 
-Make sure `(venv)` is activeon http://127.0.0.1:8000
+You should see:
 
-````
+```
+INFO:     Uvicorn running on http://127.0.0.1:8000
+```
+
+The server is now running and ready to accept connections.
+
+**Tip**: To run the entire application (backend + frontend together), use `./dev.sh` from the project root instead.
 
 ## Test it works
 
@@ -84,7 +89,7 @@ To test the API endpoint, open a new terminal and run:
 
 ```bash
 curl http://127.0.0.1:8000/health
-````
+```
 
 You should see:
 
