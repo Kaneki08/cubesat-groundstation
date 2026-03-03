@@ -164,6 +164,8 @@ cubesat-groundstation-ui/
 ├── dev.sh               # One-command launcher script
 ├── server/              # Python backend
 │   ├── app_fastapi.py   # FastAPI application entry point
+|   ├── zmq/
+|   |   ├── listener.py  # GNU Radio Listener
 │   ├── requirements.txt # Python dependencies
 │   ├── *.iq             # Test IQ signal files
 │   └── README.md        # Backend setup guide
