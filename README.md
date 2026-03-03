@@ -31,6 +31,81 @@ npm --version
 
 The backend uses a Python virtual environment to isolate dependencies. The setup script will guide you through creating one if needed.
 
+## Installing Prerequisites
+
+If you need to install any of the prerequisites, follow the instructions for your operating system:
+
+### Python 3.8+
+
+**macOS/Linux**:
+
+```bash
+# Check if already installed
+python3 --version
+
+# macOS: Install via Homebrew
+brew install python3
+
+# Ubuntu/Debian Linux
+sudo apt update
+sudo apt install python3 python3-pip python3-venv
+```
+
+**Windows**:
+
+1. Download from https://www.python.org/downloads/
+2. Run the installer
+3. **Important**: Check "Add Python to PATH" during installation
+4. Verify: `python --version`
+
+### Node.js and npm
+
+**All platforms**:
+
+1. Visit https://nodejs.org
+2. Download the **LTS version** (recommended)
+3. Run the installer and follow the prompts
+4. Verify installation:
+   ```bash
+   node --version
+   npm --version
+   ```
+
+**macOS alternative** (via Homebrew):
+
+```bash
+brew install node
+```
+
+**Linux alternative** (Ubuntu/Debian):
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+### Git
+
+**macOS**:
+
+```bash
+# Check if installed
+git --version
+
+# If not installed, macOS will prompt to install developer tools
+# Or install via Homebrew
+brew install git
+```
+
+**Windows**:
+Download and install from https://git-scm.com/downloads
+
+**Linux** (Ubuntu/Debian):
+
+```bash
+sudo apt install git
+```
+
 ## Quick Start (Recommended)
 
 Run the entire application with a single command:
