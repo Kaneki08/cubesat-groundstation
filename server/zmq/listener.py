@@ -3,9 +3,12 @@ DESCRIPTION: GNU Radio files will broadcast output as a ZMQ message. This
 script will serve as the listerner that will suibscribe to this ZMQ message
 and pull data to the server.
 '''
-
+import asyncio
+import requests
 import zmq
 import numpy as np
+
+FASTAPI_URL = "http://127.0.0.1/8000/ingest"
 
 def main():
     ctx = zmq.Context()
@@ -24,8 +27,17 @@ def main():
     # Listerner is set to interperet raw IQ values. This might change upon further testing
     while True:
         data = sub.recv()
-        iq = np.frombuffer(data, dtype=np.complex64)
-        print("Received", len(iq), "samples")
+
+        payload = {
+            "hex": " ".join(f"{b:02X}" for b in data),
+            "length": len(data)
+        }
+
+        try:
+            r = requests.post(FASTAPI_URL, json=payload, timeout=5)
+            print(f"Forwarded: {payload['hex']} -> {r.status_code}")
+        except requests.RequestException as e:
+            print(f"Failed to send to FastAPI: {e}")
 
 if __name__ == "__main__":
     main()

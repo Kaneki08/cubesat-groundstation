@@ -87,6 +87,10 @@ def spectrum_row(start_idx: int) -> np.ndarray:
 
     return db.astype(np.float32)
 
+@app.post("/ingest")
+async def ingest(paylod: dict):
+    print("Recieved from listener: ", paylod)
+    return {"status":"ok"}
 
 @app.get("/health")
 def health():

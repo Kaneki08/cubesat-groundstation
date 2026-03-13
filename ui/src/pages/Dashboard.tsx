@@ -4,7 +4,7 @@ import Card from "../Components/Card";
 // WebSocket URLs
 const WS_PROTOCOL = window.location.protocol === "https:" ? "wss" : "ws";
 const WS_BASE = `${WS_PROTOCOL}://${window.location.host}`;
-const WS_TELEMETRY = `${WS_BASE}/ws/telemetry`;
+const WS_TELEMETRY = `${WS_BASE}/ws/telemetry`; // Switch this to /ws/ingest for zmq data
 const WS_WATERFALL = `${WS_BASE}/ws/waterfall`;
 
 // Waterfall config
