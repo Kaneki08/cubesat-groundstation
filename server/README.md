@@ -96,6 +96,21 @@ You should see:
 ```json
 { "status": "ok" }
 ```
+## Run the ZMQ Demo
+In order to run the demo, you'll need to actviate 3 scripts. In the future we'll have a single script that will automatically run all nessecary programs but for now they will be:
+- `lora_RX.py`
+- `listener.py`
+- The previously mentioned FastAPI server
+
+Naviagte to the `/server/signal_processes` folder and run:
+```
+python3 lora_RX.py
+```
+Next go to `/server/zmq` and run:
+```
+python3 listener.py
+```
+That's it. If you've already turned on the server using the instructions above you'll start seeing values showing up in the Dashboard.
 
 ## Common problems
 
