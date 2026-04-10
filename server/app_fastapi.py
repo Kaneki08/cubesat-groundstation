@@ -88,8 +88,8 @@ def spectrum_row(start_idx: int) -> np.ndarray:
     return db.astype(np.float32)
 
 @app.post("/ingest")
-async def ingest(paylod: dict):
-    print("Recieved from listener: ", paylod)
+async def ingest(payload: dict):
+    print("Recieved from listener: ", payload)
     return {"status":"ok"}
 
 @app.get("/health")
@@ -98,7 +98,6 @@ def health():
     Simple REST endpoint to check if the server is alive.
     """
     return {"status": "ok"}
-
 
 @app.websocket("/ws/telemetry")
 async def telemetry_ws(websocket: WebSocket):
