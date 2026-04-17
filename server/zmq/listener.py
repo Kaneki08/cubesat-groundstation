@@ -9,6 +9,24 @@ import zmq
 import numpy as np
 
 FASTAPI_URL = "http://127.0.0.1/8000/ingest"
+HEADER_SIZE = 9
+
+def decodeHeader(header_data):
+    if len(header_data) < HEADER_SIZE:
+        raise ValueError(f"Packet too short: {len(header_data)} < {HEADER_SIZE}")
+    
+    return {
+        'sat_id': header_data[0].decode('utf-8', errors='ignore'),
+        'packet_type': header_data[1].decode('utf-8', errors='ignore'),
+        'sequence': header_data[2].decode('utf-8', errors='ignore'),
+        'timestamp': header_data[3].decode('utf-8', errors='ignore'),
+        'payload_len': header_data[4].decode('utf-8', errors='ignore')
+    }
+
+# @TODO: Need to edit this to check length of packet first for validity
+def decodeContent(packet_data):
+    return packet_data[10:29].decode('utf-8', errors='ignore')
+
 
 def main():
     ctx = zmq.Context()
@@ -24,13 +42,18 @@ def main():
 
     print("Listening on port 6001...")
 
-    # Listerner is set to interperet raw IQ values. This might change upon further testing
+    # decodeHeader() and decodeContent() expects hex values
     while True:
         data = sub.recv()
 
+        header = decodeHeader(data)
+        text = decodeContent(data)
+        print(header)
+        print(text)
+
         payload = {
-            "hex": " ".join(f"{b:02X}" for b in data),
-            "length": len(data)
+            "header": header,
+            "content": text
         }
 
         try:
