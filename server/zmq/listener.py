@@ -8,25 +8,26 @@ import requests
 import zmq
 import numpy as np
 
-FASTAPI_URL = "http://127.0.0.1/8000/ingest"
-HEADER_SIZE = 9
+FASTAPI_URL = "http://127.0.0.1:8000/ingest"
+HEADER_SIZE = 10
 
-def decodeHeader(header_data):
-    if len(header_data) < HEADER_SIZE:
-        raise ValueError(f"Packet too short: {len(header_data)} < {HEADER_SIZE}")
+def decodeHeader(packet):
+    if len(packet) < HEADER_SIZE:
+        raise ValueError("Packet too short to contain full header")
+
+    if packet[8:9] != b'$':
+        raise ValueError("Missing $ marker in header")
     
     return {
-        'sat_id': header_data[0].decode('utf-8', errors='ignore'),
-        'packet_type': header_data[1].decode('utf-8', errors='ignore'),
-        'sequence': header_data[2].decode('utf-8', errors='ignore'),
-        'timestamp': header_data[3].decode('utf-8', errors='ignore'),
-        'payload_len': header_data[4].decode('utf-8', errors='ignore')
+        'sat_id': packet[0],
+        'packet_type': packet[1],
+        'sequence': int.from_bytes(packet[2:4], 'big'),
+        'timestamp': int.from_bytes(packet[4:8], 'big'),
+        'payload_len': packet[9]
     }
 
-# @TODO: Need to edit this to check length of packet first for validity
 def decodeContent(packet_data):
-    return packet_data[10:29].decode('utf-8', errors='ignore')
-
+    return packet_data[HEADER_SIZE:]
 
 def main():
     ctx = zmq.Context()
