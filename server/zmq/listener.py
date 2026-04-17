@@ -8,7 +8,7 @@ import requests
 import zmq
 import numpy as np
 
-FASTAPI_URL = "http://127.0.0.1/8000/ingest"
+FASTAPI_URL = "http://127.0.0.1:8000/ingest"
 HEADER_SIZE = 9
 
 def decodeHeader(header_data):
