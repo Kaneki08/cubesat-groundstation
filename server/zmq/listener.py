@@ -9,7 +9,11 @@ import zmq
 import numpy as np
 
 FASTAPI_URL = "http://127.0.0.1:8000/ingest"
+<<<<<<< HEAD
 HEADER_SIZE = 10
+=======
+HEADER_SIZE = 9
+>>>>>>> d5d5335e582da6ba010de8d1f01b485dc4682c10
 
 def decodeHeader(packet):
     if len(packet) < HEADER_SIZE:
