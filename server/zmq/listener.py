@@ -58,7 +58,6 @@ def main():
 
         try:
             r = requests.post(FASTAPI_URL, json=payload, timeout=5)
-            print(f"Forwarded: {payload['hex']} -> {r.status_code}")
         except requests.RequestException as e:
             print(f"Failed to send to FastAPI: {e}")
 
