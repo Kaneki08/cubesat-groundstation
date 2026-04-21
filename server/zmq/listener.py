@@ -9,13 +9,11 @@ import zmq
 import numpy as np
 
 FASTAPI_URL = "http://127.0.0.1:8000/ingest"
-<<<<<<< HEAD
 HEADER_SIZE = 10
-=======
-HEADER_SIZE = 9
->>>>>>> d5d5335e582da6ba010de8d1f01b485dc4682c10
 
-def decodeHeader(packet):
+timeout_ms = 1000
+
+def decode_header(packet):
     if len(packet) < HEADER_SIZE:
         raise ValueError("Packet too short to contain full header")
 
@@ -30,9 +28,15 @@ def decodeHeader(packet):
         'payload_len': packet[9]
     }
 
-def decodeContent(packet_data):
+def decode_content(packet_data):
     return packet_data[HEADER_SIZE:]
 
+def receive_once(sub):
+    try:
+        return sub.recv()
+    except zmq.Again:
+        return None
+    
 def main():
     ctx = zmq.Context()
 
@@ -45,14 +49,16 @@ def main():
     # IMPORTANT: Subscribe to all topics
     sub.setsockopt_string(zmq.SUBSCRIBE, "")
 
+    sub.setsockopt(zmq.RCVTIMEO, timeout_ms)
+
     print("Listening on port 6001...")
 
     # decodeHeader() and decodeContent() expects hex values
     while True:
         data = sub.recv()
 
-        header = decodeHeader(data)
-        text = decodeContent(data)
+        header = decode_header(data)
+        text = decode_content(data)
         print(header)
         print(text)
 
@@ -69,3 +75,22 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+class HeartbeatMonitor:
+    HEARTBEAT_TYPE = 0xAA
+
+    def __init__(self):
+        self.count = 0;
+        self.last_seq = None;
+
+    def process_heartbeat_packet(self, packet: bytes):
+        header = decode_header(packet)
+        content = decode_content(packet)
+
+        if header['packet_type'] != self.HEARTBEAT_TYPE:
+            raise False
+        
+        seq = header['sequence']
+        self.count += 1
+        self.last_seq = seq
+        return True
