@@ -53,12 +53,12 @@ def main():
 
     print("Listening on port 6001...")
 
-    # decodeHeader() and decodeContent() expects hex values
+    # decode_header() and decode_content() expects hex values
     while True:
         data = sub.recv()
 
-        header = decodeHeader(data)
-        text = decodeContent(data).decode("utf-8", errors="ignore")
+        header = decode_header(data)
+        text = decode_content(data).decode("utf-8", errors="ignore")
         print(header)
         print(text)
 
