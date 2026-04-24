@@ -85,30 +85,44 @@ async def ingest(payload: dict):
 
     # Store raw packet
     latest_packet = {
-        "received_at": int(time.time()),
-        "raw_hex": payload.get("raw_hex", ""),
-        "header": payload.get("header", {}),
-        "content": payload.get("content", ""),
-        "decoded_fields": payload.get("decoded_fields", {})
+        "received_at": int(time.time()), # Unix timestamp in seconds
+        "raw_hex": payload.get("raw_hex", ""), # Optional: Store raw hex for debugging
+        "header": payload.get("header", {}),  # Store decoded header fields
+        "content": payload.get("content", ""), # Store decoded content string
+        "decoded_fields": payload.get("decoded_fields", {}) # Optional: Store any additional decoded fields for future use
     }
 
     # Update telemetry timestamp
     latest_telemetry["timestamp"] = int(time.time())
 
     header = latest_packet["header"]
-    decoded = latest_packet["decoded_fields"]
+    content = latest_packet["content"]
 
-    # Map values (expand later)
+    # Map header info
     latest_telemetry["mode"] = header.get("packet_type")
 
-    if "rssi_dbm" in decoded:
-        latest_telemetry["radio"]["rssi_dbm"] = decoded["rssi_dbm"]
+    # Parse content string like: battery=7.5,rssi=-75,snr=9.8
+    if isinstance(content, str):
+        parts = content.split(",")
 
-    if "snr_db" in decoded:
-        latest_telemetry["radio"]["snr_db"] = decoded["snr_db"]
+        for part in parts:
+            if "=" not in part:
+                continue
 
-    if "battery_voltage" in decoded:
-        latest_telemetry["power"]["battery_voltage"] = decoded["battery_voltage"]
+            key, value = part.split("=", 1)
+            key = key.strip()
+            value = value.strip()
+
+            if key == "battery":
+                latest_telemetry["power"]["battery_voltage"] = float(value)
+
+            elif key == "rssi":
+                latest_telemetry["radio"]["rssi_dbm"] = int(value)
+
+            elif key == "snr":
+                latest_telemetry["radio"]["snr_db"] = float(value)
+
+    print("Updated telemetry:", latest_telemetry)
 
     return {"status": "ok"}
 

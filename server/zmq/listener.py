@@ -9,7 +9,7 @@ import zmq
 import numpy as np
 
 FASTAPI_URL = "http://127.0.0.1:8000/ingest"
-HEADER_SIZE = 9
+HEADER_SIZE = 10
 
 def decodeHeader(packet):
     if len(packet) < HEADER_SIZE:
@@ -23,7 +23,7 @@ def decodeHeader(packet):
         'packet_type': packet[1],
         'sequence': int.from_bytes(packet[2:4], 'big'),
         'timestamp': int.from_bytes(packet[4:8], 'big'),
-        'payload_len': packet[9]
+        'payload_len': packet[10]
     }
 
 def decodeContent(packet_data):
@@ -48,7 +48,7 @@ def main():
         data = sub.recv()
 
         header = decodeHeader(data)
-        text = decodeContent(data)
+        text = decodeContent(data).decode("utf-8", errors="ignore")
         print(header)
         print(text)
 

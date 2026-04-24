@@ -3,3 +3,5 @@ uvicorn[standard]
 numpy
 websockets == 12.0
 requests
+pyzmq
+pytest
