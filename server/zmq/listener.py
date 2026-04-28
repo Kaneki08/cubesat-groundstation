@@ -55,22 +55,28 @@ def main():
 
     # decode_header() and decode_content() expects hex values
     while True:
-        data = sub.recv()
-
-        header = decode_header(data)
-        text = decode_content(data).decode("utf-8", errors="ignore")
-        print(header)
-        print(text)
-
-        payload = {
-            "header": header,
-            "content": text
-        }
+        data = receive_once(sub)
+        
+        if data is None:
+            continue
 
         try:
-            r = requests.post(FASTAPI_URL, json=payload, timeout=5)
-        except requests.RequestException as e:
-            print(f"Failed to send to FastAPI: {e}")
+            header = decode_header(data)
+            text = decode_content(data).decode("utf-8", errors="ignore")
+            print(header)
+            print(text)
+
+            payload = {
+                "header": header,
+                "content": text
+            }
+
+            try:
+                r = requests.post(FASTAPI_URL, json=payload, timeout=5)
+            except requests.RequestException as e:
+                print(f"Failed to send to FastAPI: {e}")
+        except ValueError as e:
+            print(f"Failed to decode packet: {e}")
 
 if __name__ == "__main__":
     main()
