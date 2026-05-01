@@ -7,11 +7,24 @@ import asyncio
 import requests
 import zmq
 import numpy as np
+from enum import IntEnum
+
+class PacketType(IntEnum):
+    PACKET_IMU = 1
+    PACKET_TC = 2
 
 FASTAPI_URL = "http://127.0.0.1:8000/ingest"
 HEADER_SIZE = 10
 
 timeout_ms = 1000
+
+def size_of_packet_type(packet_type):
+    if packet_type == PacketType.PACKET_IMU:
+        return 20
+    elif PacketType == PacketType.PACKET_TC:
+        return 8
+    return 0
+
 
 def decode_header(packet):
     if len(packet) < HEADER_SIZE:
@@ -19,17 +32,45 @@ def decode_header(packet):
 
     if packet[8:9] != b'$':
         raise ValueError("Missing $ marker in header")
-    
+
+    raw_packet_type = packet[1]
+
+    try:
+        packet_type = PacketType(raw_packet_type)
+    except ValueError:
+        packet_type = raw_packet_type  # unknown packet type, keep the number
+
     return {
         'sat_id': packet[0],
-        'packet_type': packet[1],
-        'sequence': int.from_bytes(packet[2:4], 'big'),
-        'timestamp': int.from_bytes(packet[4:8], 'big'),
-        'payload_len': packet[10]
+        'packet_type': packet_type,
+        'sequence': int.from_bytes(packet[2:4], 'little'),
+        'timestamp': int.from_bytes(packet[4:8], 'little'),
+        'payload_len': packet[9]
     }
 
-def decode_content(packet_data):
-    return packet_data[HEADER_SIZE:]
+def decode_content(packet_data, packet_type):
+    if len(packet_data) != size_of_packet_type(packet_type):
+        raise ValueError("Packet wrong size")
+
+    if packet_type == PacketType.PACKET_IMU:
+        imu_packet = {
+            "gx_dps": int.from_bytes(packet_data[0:2], "little", signed=True),
+            "gy_dps": int.from_bytes(packet_data[2:4], "little", signed=True),
+            "gz_dps": int.from_bytes(packet_data[4:6], "little", signed=True),
+
+            "ax_mg": int.from_bytes(packet_data[6:8], "little", signed=True),
+            "ay_mg": int.from_bytes(packet_data[8:10], "little", signed=True),
+            "az_mg": int.from_bytes(packet_data[10:12], "little", signed=True),
+
+            "qi": int.from_bytes(packet_data[12:14], "little", signed=True),
+            "qj": int.from_bytes(packet_data[14:16], "little", signed=True),
+            "qk": int.from_bytes(packet_data[16:18], "little", signed=True),
+            "qr": int.from_bytes(packet_data[18:20], "little", signed=True)
+        }
+        return imu_packet
+    return 0
+
+
 
 def receive_once(sub):
     try:
@@ -62,13 +103,15 @@ def main():
 
         try:
             header = decode_header(data)
-            text = decode_content(data).decode("utf-8", errors="ignore")
+            content = decode_content(data, header['packet_type'])
             print(header)
-            print(text)
+
+            for k, v in content.items():
+                print(k, v)
 
             payload = {
                 "header": header,
-                "content": text
+                "content": content
             }
 
             try:
@@ -85,7 +128,7 @@ class HeartbeatMonitor:
     HEARTBEAT_TYPE = 0xAA
 
     def __init__(self):
-        self.count = 0;
+        self.count = 0
         self.last_seq = None;
 
     def process_heartbeat_packet(self, packet: bytes):

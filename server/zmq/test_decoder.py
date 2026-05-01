@@ -1,8 +1,10 @@
+import struct
+
 import pytest
 import zmq
 import time
 from unittest.mock import Mock
-from listener import receive_once, decode_header, decode_content, HEADER_SIZE, HeartbeatMonitor
+from listener import receive_once, decode_header, decode_content, HEADER_SIZE, HeartbeatMonitor, PacketType
 
 packet = (
     bytes([0x01]) +
@@ -128,3 +130,73 @@ def test_full_pipeline():
     pub.close()
     sub.close()
     ctx.term()
+
+def test_full_pipeline_imu():
+    ctx = zmq.Context()
+
+    pub = ctx.socket(zmq.PUB)
+    sub = ctx.socket(zmq.SUB)
+
+    port = pub.bind_to_random_port("tcp://127.0.0.1")
+    endpoint = f"tcp://127.0.0.1:{port}"
+    sub.connect(endpoint)
+
+    sub.setsockopt(zmq.SUBSCRIBE, b"")
+
+    time.sleep(0.1)
+
+    # Create IMU payload values
+    imu_values = (
+        9, 1, 1,  # gx, gy, gz
+        1, 1, 1,  # ax, ay, az
+        1, 6, 1, 7  # qi, qj, qk, qr
+    )
+
+    # Pack into bytes (little-endian, signed int16)
+    imu_payload = struct.pack("<10h", *imu_values)
+
+    # Build packet
+    packet = (
+            bytes([0x01]) +  # sat_id
+            bytes([PacketType.PACKET_IMU]) +  # packet_type
+            (1).to_bytes(2, 'little') +  # sequence
+            (42).to_bytes(4, 'little') +  # timestamp
+            b'$' +
+            (20).to_bytes(1, 'little') + #payload length
+            imu_payload
+    )
+
+    pub.send(packet)
+
+    received_packet = sub.recv()
+
+    header = decode_header(received_packet[:HEADER_SIZE])
+    content = decode_content(received_packet[HEADER_SIZE:], header["packet_type"])
+
+    assert header['packet_type'] == PacketType.PACKET_IMU
+    assert header['payload_len'] == 20
+
+    # Validate decoded IMU values
+    assert content["gx_dps"] == 9
+    assert content["gy_dps"] == 1
+    assert content["gz_dps"] == 1
+
+    assert content["ax_mg"] == 1
+    assert content["ay_mg"] == 1
+    assert content["az_mg"] == 1
+
+    assert content["qi"] == 1
+    assert content["qj"] == 6
+    assert content["qk"] == 1
+    assert content["qr"] == 7
+
+    pub.close()
+    sub.close()
+    ctx.term()
+
+def main():
+    test_full_pipeline_imu()
+
+
+if __name__ == "__main__":
+    main()
