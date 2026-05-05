@@ -25,7 +25,7 @@ def decode_header(packet: bytes):
         'packet_type': packet[1],
         'sequence': int.from_bytes(packet[2:4], 'big'),
         'timestamp': int.from_bytes(packet[4:8], 'big'),
-        'payload_len': packet[9]
+        'payload_len': packet[10]
     }
 
 def decode_content(packet_data: bytes):
@@ -53,31 +53,30 @@ def main():
 
     print("Listening on port 6001...")
 
-    # decodeHeader() and decodeContent() expects hex values
+    # decode_header() and decode_content() expects hex values
     while True:
-        data: bytes = None
-        header = None
-        text = None
+        data = receive_once(sub)
+        
+        if data is None:
+            continue
+
         try:
-            data = sub.recv()
-        except zmq.Again:
-            print("No message received within timeout")
-            pass
-        if data is not None:
             header = decode_header(data)
-            text = decode_content(data)
+            text = decode_content(data).decode("utf-8", errors="ignore")
+            print(header)
+            print(text)
 
-        payload = {
-            "header": header,
-            "content": text
-        }
+            payload = {
+                "header": header,
+                "content": text
+            }
 
-        try:
-            r = requests.post(FASTAPI_URL, json=payload, timeout=5)
-            print(f"Header: {payload['header']}")
-            print(f"Payload: {payload['content']}")
-        except requests.RequestException as e:
-            print(f"Failed to send to FastAPI: {e}")
+            try:
+                r = requests.post(FASTAPI_URL, json=payload, timeout=5)
+            except requests.RequestException as e:
+                print(f"Failed to send to FastAPI: {e}")
+        except ValueError as e:
+            print(f"Failed to decode packet: {e}")
 
 if __name__ == "__main__":
     main()

@@ -184,3 +184,9 @@ cubesat-groundstation-ui/
 - WebSocket streaming for continuous data flow
 - Fully offline capable - runs entirely on your local machine
 - Single-port deployment for simplified hosting
+
+
+## Contributors
+- Alejandro Gomez 
+- Derick Barrientos  
+- Jonathan Lin - [GitHub](https://github.com/jonnylin22)
