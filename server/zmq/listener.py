@@ -13,12 +13,12 @@ HEADER_SIZE = 10
 
 timeout_ms = 1000
 
-def decode_header(packet):
+def decode_header(packet: bytes):
     if len(packet) < HEADER_SIZE:
         raise ValueError("Packet too short to contain full header")
 
-    if packet[8:9] != b'$':
-        raise ValueError("Missing $ marker in header")
+    #if packet[8:9] != b'$':
+    #    raise ValueError("Missing $ marker in header")
     
     return {
         'sat_id': packet[0],
@@ -28,8 +28,8 @@ def decode_header(packet):
         'payload_len': packet[9]
     }
 
-def decode_content(packet_data):
-    return packet_data[HEADER_SIZE:]
+def decode_content(packet_data: bytes):
+    return packet_data[HEADER_SIZE:].hex()
 
 def receive_once(sub):
     try:
@@ -55,12 +55,17 @@ def main():
 
     # decodeHeader() and decodeContent() expects hex values
     while True:
-        data = sub.recv()
-
-        header = decode_header(data)
-        text = decode_content(data)
-        print(header)
-        print(text)
+        data: bytes = None
+        header = None
+        text = None
+        try:
+            data = sub.recv()
+        except zmq.Again:
+            print("No message received within timeout")
+            pass
+        if data is not None:
+            header = decode_header(data)
+            text = decode_content(data)
 
         payload = {
             "header": header,
@@ -69,7 +74,8 @@ def main():
 
         try:
             r = requests.post(FASTAPI_URL, json=payload, timeout=5)
-            print(f"Forwarded: {payload['hex']} -> {r.status_code}")
+            print(f"Header: {payload['header']}")
+            print(f"Payload: {payload['content']}")
         except requests.RequestException as e:
             print(f"Failed to send to FastAPI: {e}")
 
