@@ -4,7 +4,7 @@ import Card from "../Components/Card";
 // WebSocket URLs
 const WS_PROTOCOL = window.location.protocol === "https:" ? "wss" : "ws";
 const WS_BASE = `${WS_PROTOCOL}://${window.location.host}`;
-const WS_TELEMETRY = `${WS_BASE}/ws/telemetry`; // Switch this to /ws/ingest for zmq data
+const WS_TELEMETRY = `${WS_BASE}/ws/telemetry`;
 const WS_WATERFALL = `${WS_BASE}/ws/waterfall`;
 
 // Waterfall config
@@ -12,102 +12,170 @@ const BINS = 512;
 const ROWS = 240;
 const DB_MIN = -80;
 const DB_MAX = -10;
-const USE_FAKE_TELEMETRY = false;
+const USE_FAKE_TELEMETRY = true;
 
-type TelemetryPacket = {
-  power?: {
-    battery_voltage?: number;
-    solar_current?: number;
-    battery_temp_c?: number;
-  };
-  orientation?: {
-    roll_deg?: number;
-    pitch_deg?: number;
-    yaw_deg?: number;
-  };
-  radio?: {
-    frequency_mhz?: number;
-    rssi_dbm?: number;
-    snr_db?: number;
-  };
+// ---- Types matching app_fastapi.py latest_telemetry shape ----------------
+
+type ImuData = {
+  gx_dps: number | null;
+  gy_dps: number | null;
+  gz_dps: number | null;
+  ax_mg: number | null;
+  ay_mg: number | null;
+  az_mg: number | null;
+  qi: number | null;
+  qj: number | null;
+  qk: number | null;
+  qr: number | null;
 };
 
-// SDR-style color mapping
+type BatteryData = {
+  current_mA: number | null;
+  avg_current_mA: number | null;
+  voltage_mV: number | null;
+  average_voltage_mV: number | null;
+  cycle_count: number | null;
+  temperature_c: number | null;
+  ext_temp1_c: number | null;
+  ext_temp2_c: number | null;
+  ext_temp3_c: number | null;
+  ext_temp4_c: number | null;
+  ext_temp5_c: number | null;
+  ext_temp6_c: number | null;
+  ext_temp7_c: number | null;
+  ext_temp8_c: number | null;
+  cell_voltage1_mV: number | null;
+  cell_voltage2_mV: number | null;
+  cell_voltage3_mV: number | null;
+  cell_voltage4_mV: number | null;
+};
+
+type TcData = {
+  tc_avg1: number | null;
+  tc_avg2: number | null;
+};
+
+type TelemetryPacket = {
+  timestamp?: number;
+  packet_type?: number | null;
+  imu?: ImuData;
+  battery?: BatteryData;
+  tc?: TcData;
+  ground_station?: string;
+};
+
+// ---- Helpers ---------------------------------------------------------------
+
+function fmt(v: number | null | undefined, unit: string, decimals = 1): string {
+  return v != null ? `${Number(v).toFixed(decimals)} ${unit}` : "—";
+}
+
+function fmtInt(v: number | null | undefined, unit: string): string {
+  return v != null ? `${Math.round(v)} ${unit}` : "—";
+}
+
 function sdrColor(t: number): [number, number, number] {
   if (t < 0) t = 0;
   if (t > 1) t = 1;
-
-  const r = Math.floor(255 * t);
-  const g = Math.floor(255 * Math.min(1, t * 1.2));
-  const b = Math.floor(255 * (1 - t));
-  return [r, g, b];
+  return [
+    Math.floor(255 * t),
+    Math.floor(255 * Math.min(1, t * 1.2)),
+    Math.floor(255 * (1 - t)),
+  ];
 }
 
-// Small helper
 function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n));
 }
 
+// A small row component so the cards stay readable
+function Row({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="flex justify-between text-sm py-0.5">
+      <span className="text-slate-400">{label}</span>
+      <span className={highlight ? "text-emerald-400 font-mono" : "font-mono"}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+// ---- Fake telemetry for dev ------------------------------------------------
+
+function makeFakeTelemetry(): TelemetryPacket {
+  const t = Date.now() / 1000;
+  return {
+    timestamp: Math.floor(t),
+    packet_type:
+      Math.floor(t / 3) % 3 === 0 ? 1 : Math.floor(t / 3) % 3 === 1 ? 3 : 2,
+    imu: {
+      gx_dps: Math.round(12 * Math.sin(t / 3)),
+      gy_dps: Math.round(8 * Math.sin(t / 4)),
+      gz_dps: Math.round(5 * Math.sin(t / 5)),
+      ax_mg: Math.round(200 * Math.sin(t / 6)),
+      ay_mg: Math.round(150 * Math.sin(t / 7)),
+      az_mg: Math.round(980 + 20 * Math.sin(t / 8)),
+      qi: Math.round(1000 * Math.cos(t / 10)),
+      qj: Math.round(100 * Math.sin(t / 10)),
+      qk: Math.round(50 * Math.sin(t / 11)),
+      qr: Math.round(900 * Math.cos(t / 9)),
+    },
+    battery: {
+      current_mA: Math.round(450 + 50 * Math.sin(t / 5)),
+      avg_current_mA: Math.round(440 + 30 * Math.sin(t / 8)),
+      voltage_mV: Math.round(7600 + 100 * Math.sin(t / 6)),
+      average_voltage_mV: Math.round(7580 + 80 * Math.sin(t / 7)),
+      cycle_count: 42,
+      temperature_c: Number((25 + 2 * Math.sin(t / 10)).toFixed(2)),
+      ext_temp1_c: Number((27 + Math.sin(t / 9)).toFixed(2)),
+      ext_temp2_c: Number((26 + Math.sin(t / 8)).toFixed(2)),
+      ext_temp3_c: Number((28 + Math.sin(t / 7)).toFixed(2)),
+      ext_temp4_c: null,
+      ext_temp5_c: null,
+      ext_temp6_c: null,
+      ext_temp7_c: null,
+      ext_temp8_c: null,
+      cell_voltage1_mV: Math.round(1900 + 20 * Math.sin(t / 6)),
+      cell_voltage2_mV: Math.round(1910 + 15 * Math.sin(t / 5)),
+      cell_voltage3_mV: Math.round(1895 + 18 * Math.sin(t / 7)),
+      cell_voltage4_mV: Math.round(1905 + 12 * Math.sin(t / 8)),
+    },
+    tc: {
+      tc_avg1: Number((312 + 5 * Math.sin(t / 4)).toFixed(1)),
+      tc_avg2: Number((318 + 4 * Math.sin(t / 5)).toFixed(1)),
+    },
+    ground_station: "UCI",
+  };
+}
+
+// ---- Dashboard -------------------------------------------------------------
+
 export default function Dashboard() {
-  // ---- Header online status (ONE place) ----
   const [status, setStatus] = useState<"offline" | "connecting" | "online">(
     USE_FAKE_TELEMETRY ? "online" : "connecting",
   );
-
-  // ---- Telemetry state (can be real WS or fake) ----
   const [telemetry, setTelemetry] = useState<TelemetryPacket | null>(null);
-
-  // ---- Waterfall ----
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Fake telemetry generator (simple + nice looking)
+  // Fake telemetry
   useEffect(() => {
     if (!USE_FAKE_TELEMETRY) return;
-
-    const t0 = Date.now();
-    const id = setInterval(() => {
-      const t = (Date.now() - t0) / 1000;
-
-      // smooth variations
-      const batt = 7.6 + 0.25 * Math.sin(t / 6);
-      const solar = 1.4 + 0.8 * Math.max(0, Math.sin(t / 4));
-      const temp = 33.5 + 2.0 * Math.sin(t / 10);
-
-      const freq = 437.2 + 0.05 * Math.sin(t / 12);
-      const rssi = -118 + 6 * Math.sin(t / 5);
-      const snr = 3.8 + 2.0 * Math.sin(t / 7);
-
-      const roll = -6 + 1.6 * Math.sin(t / 6);
-      const pitch = -4 + 1.2 * Math.sin(t / 8);
-      const yaw = 30 + 7.0 * Math.sin(t / 9);
-
-      setTelemetry({
-        power: {
-          battery_voltage: Number(batt.toFixed(2)),
-          solar_current: Number(solar.toFixed(2)),
-          battery_temp_c: Number(temp.toFixed(1)),
-        },
-        radio: {
-          frequency_mhz: Number(freq.toFixed(2)),
-          rssi_dbm: Math.round(rssi),
-          snr_db: Number(snr.toFixed(1)),
-        },
-        orientation: {
-          roll_deg: Number(roll.toFixed(1)),
-          pitch_deg: Number(pitch.toFixed(1)),
-          yaw_deg: Number(yaw.toFixed(1)),
-        },
-      });
-    }, 250);
-
+    const id = setInterval(() => setTelemetry(makeFakeTelemetry()), 250);
     return () => clearInterval(id);
   }, []);
 
-  // Real telemetry WS (only if you flip USE_FAKE_TELEMETRY = false)
+  // Real telemetry WS
   useEffect(() => {
     if (USE_FAKE_TELEMETRY) return;
     const ws = new WebSocket(WS_TELEMETRY);
-
     ws.onopen = () => setStatus("online");
     ws.onclose = () => {
       setStatus("offline");
@@ -117,27 +185,22 @@ export default function Dashboard() {
       setStatus("offline");
       setTelemetry(null);
     };
-
     ws.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data) as TelemetryPacket;
-        setTelemetry(data);
+        setTelemetry(JSON.parse(event.data) as TelemetryPacket);
       } catch (e) {
         console.error("Telemetry parse error:", e);
       }
     };
-
     return () => ws.close();
   }, []);
 
-  // Waterfall WS (this can be your “one real connection” if you want)
+  // Waterfall WS
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-
     canvas.width = BINS;
     canvas.height = ROWS;
     ctx.fillStyle = "black";
@@ -145,22 +208,16 @@ export default function Dashboard() {
 
     const ws = new WebSocket(WS_WATERFALL);
     ws.binaryType = "arraybuffer";
-
     ws.onopen = () => setStatus("online");
     ws.onclose = () => setStatus("offline");
     ws.onerror = () => setStatus("offline");
-
     ws.onmessage = (event) => {
       const row = new Float32Array(event.data);
       if (row.length !== BINS) return;
-
-      // scroll up one pixel row
       ctx.drawImage(canvas, 0, -1);
-
       const img = ctx.createImageData(BINS, 1);
       for (let x = 0; x < BINS; x++) {
-        const db = row[x];
-        const t = clamp((db - DB_MIN) / (DB_MAX - DB_MIN), 0, 1);
+        const t = clamp((row[x] - DB_MIN) / (DB_MAX - DB_MIN), 0, 1);
         const [R, G, B] = sdrColor(t);
         const p = x * 4;
         img.data[p] = R;
@@ -168,27 +225,15 @@ export default function Dashboard() {
         img.data[p + 2] = B;
         img.data[p + 3] = 255;
       }
-
       ctx.putImageData(img, 0, ROWS - 1);
     };
-
     return () => ws.close();
   }, []);
 
-  // Values
-  const batteryV = telemetry?.power?.battery_voltage ?? null;
-  const solarA = telemetry?.power?.solar_current ?? null;
-  const battTemp = telemetry?.power?.battery_temp_c ?? null;
+  const imu = telemetry?.imu;
+  const batt = telemetry?.battery;
+  const tc = telemetry?.tc;
 
-  const freqMHz = telemetry?.radio?.frequency_mhz ?? null;
-  const rssi = telemetry?.radio?.rssi_dbm ?? null;
-  const snr = telemetry?.radio?.snr_db ?? null;
-
-  const roll = telemetry?.orientation?.roll_deg ?? null;
-  const pitch = telemetry?.orientation?.pitch_deg ?? null;
-  const yaw = telemetry?.orientation?.yaw_deg ?? null;
-
-  // Header pill styling
   const pill =
     status === "online"
       ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
@@ -205,7 +250,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
-      {/* Darker header */}
+      {/* Header */}
       <div className="sticky top-0 z-10 border-b border-slate-800 bg-slate-950/80 backdrop-blur">
         <div className="mx-auto max-w-7xl px-4 py-4 flex items-start justify-between">
           <div>
@@ -216,7 +261,6 @@ export default function Dashboard() {
               Real-time telemetry and signal monitoring
             </p>
           </div>
-
           <div
             className={`select-none rounded-full border px-3 py-1 text-xs font-medium ${pill}`}
           >
@@ -225,9 +269,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Content */}
       <div className="mx-auto max-w-7xl px-4 py-4 space-y-4">
-        {/* TOP: Waterfall */}
+        {/* Waterfall */}
         <Card title="RF Waterfall / Spectrum">
           <div className="mt-1 flex items-center justify-between text-xs text-slate-400">
             <div>
@@ -237,9 +280,7 @@ export default function Dashboard() {
               Source: {USE_FAKE_TELEMETRY ? "Demo data" : "Live data"}
             </div>
           </div>
-
           <div className="mt-3 flex">
-            {/* Y axis */}
             <div className="flex flex-col justify-between pr-2 text-xs text-slate-400">
               <div>20 s</div>
               <div>15 s</div>
@@ -247,13 +288,10 @@ export default function Dashboard() {
               <div>5 s</div>
               <div>0 s</div>
             </div>
-
             <div className="w-full">
               <div className="h-80 w-full overflow-hidden rounded-xl border border-slate-800 bg-black">
                 <canvas ref={canvasRef} className="h-full w-full" />
               </div>
-
-              {/* X axis */}
               <div className="mt-2 flex justify-between text-xs text-slate-400 px-1">
                 <span>-15</span>
                 <span>-10</span>
@@ -270,67 +308,122 @@ export default function Dashboard() {
           </div>
         </Card>
 
-        {/* BOTTOM: changing telemetry */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card title="Power">
-            <div className="text-sm space-y-2">
-              <div className="flex justify-between">
-                <span>Battery Voltage</span>
-                <span className="text-emerald-400">
-                  {batteryV !== null ? `${batteryV} V` : "—"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>Solar Current</span>
-                <span className="text-emerald-400">
-                  {solarA !== null ? `${solarA} A` : "—"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>Battery Temp</span>
-                <span>{battTemp !== null ? `${battTemp} °C` : "—"}</span>
+        {/* IMU + Battery row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* IMU card */}
+          <Card title="IMU (PACKET_IMU)">
+            <div className="mt-1 space-y-1">
+              <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">
+                Gyroscope (°/s)
+              </p>
+              <Row label="Gx" value={fmtInt(imu?.gx_dps, "°/s")} highlight />
+              <Row label="Gy" value={fmtInt(imu?.gy_dps, "°/s")} highlight />
+              <Row label="Gz" value={fmtInt(imu?.gz_dps, "°/s")} highlight />
+
+              <p className="text-xs text-slate-500 uppercase tracking-wide mt-3 mb-2">
+                Accelerometer (mg)
+              </p>
+              <Row label="Ax" value={fmtInt(imu?.ax_mg, "mg")} />
+              <Row label="Ay" value={fmtInt(imu?.ay_mg, "mg")} />
+              <Row label="Az" value={fmtInt(imu?.az_mg, "mg")} />
+
+              <p className="text-xs text-slate-500 uppercase tracking-wide mt-3 mb-2">
+                Quaternion (raw int16)
+              </p>
+              <div className="grid grid-cols-4 gap-2 text-sm">
+                {(["qi", "qj", "qk", "qr"] as const).map((k) => (
+                  <div key={k}>
+                    <div className="text-slate-500 text-xs">{k}</div>
+                    <div className="font-mono">{imu?.[k] ?? "—"}</div>
+                  </div>
+                ))}
               </div>
             </div>
           </Card>
 
-          <Card title="Radio Link">
-            <div className="text-sm space-y-2">
-              <div className="flex justify-between">
-                <span>Frequency</span>
-                <span>{freqMHz !== null ? `${freqMHz} MHz` : "—"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>RSSI</span>
-                <span className="text-emerald-400">
-                  {rssi !== null ? `${rssi} dBm` : "—"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>SNR</span>
-                <span className="text-emerald-400">
-                  {snr !== null ? `${snr} dB` : "—"}
-                </span>
-              </div>
-            </div>
-          </Card>
+          {/* Battery card */}
+          <Card title="Battery (batt_combined_telemetry_1)">
+            <div className="space-y-1">
+              <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">
+                Electrical
+              </p>
+              <Row
+                label="Voltage"
+                value={fmtInt(batt?.voltage_mV, "mV")}
+                highlight
+              />
+              <Row
+                label="Avg Voltage"
+                value={fmtInt(batt?.average_voltage_mV, "mV")}
+              />
+              <Row
+                label="Current"
+                value={fmtInt(batt?.current_mA, "mA")}
+                highlight
+              />
+              <Row
+                label="Avg Current"
+                value={fmtInt(batt?.avg_current_mA, "mA")}
+              />
+              <Row
+                label="Cycle Count"
+                value={
+                  batt?.cycle_count != null ? String(batt.cycle_count) : "—"
+                }
+              />
 
-          <Card title="Orientation (ADCS)">
-            <div className="grid grid-cols-3 gap-4 text-sm">
-              <div>
-                <div className="text-slate-500">Roll</div>
-                <div>{roll !== null ? `${roll}°` : "—"}</div>
+              <p className="text-xs text-slate-500 uppercase tracking-wide mt-3 mb-2">
+                Cell Voltages (mV)
+              </p>
+              <div className="grid grid-cols-4 gap-2 text-sm">
+                {([1, 2, 3, 4] as const).map((n) => (
+                  <div key={n}>
+                    <div className="text-slate-500 text-xs">Cell {n}</div>
+                    <div className="font-mono">
+                      {batt?.[`cell_voltage${n}_mV` as keyof BatteryData] ??
+                        "—"}
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div>
-                <div className="text-slate-500">Pitch</div>
-                <div>{pitch !== null ? `${pitch}°` : "—"}</div>
-              </div>
-              <div>
-                <div className="text-slate-500">Yaw</div>
-                <div>{yaw !== null ? `${yaw}°` : "—"}</div>
-              </div>
+
+              <p className="text-xs text-slate-500 uppercase tracking-wide mt-3 mb-2">
+                Temperatures (°C)
+              </p>
+              <Row label="Cell Temp" value={fmt(batt?.temperature_c, "°C")} />
+              {([1, 2, 3, 4, 5, 6, 7, 8] as const).map((n) => {
+                const v = batt?.[`ext_temp${n}_c` as keyof BatteryData] as
+                  | number
+                  | null
+                  | undefined;
+                if (v == null) return null;
+                return (
+                  <Row key={n} label={`Ext Sensor ${n}`} value={fmt(v, "°C")} />
+                );
+              })}
             </div>
           </Card>
         </div>
+
+        {/* Thermocouple card — full width */}
+        <Card title="Thermocouples (TCPayload)">
+          <div className="grid grid-cols-2 gap-6 text-sm mt-1">
+            <div>
+              <div className="text-slate-500 text-xs mb-1">TC Average 1</div>
+              <div className="text-2xl font-mono text-emerald-400">
+                {tc?.tc_avg1 != null ? `${tc.tc_avg1.toFixed(1)}` : "—"}
+                <span className="text-base text-slate-400 ml-1">°C</span>
+              </div>
+            </div>
+            <div>
+              <div className="text-slate-500 text-xs mb-1">TC Average 2</div>
+              <div className="text-2xl font-mono text-emerald-400">
+                {tc?.tc_avg2 != null ? `${tc.tc_avg2.toFixed(1)}` : "—"}
+                <span className="text-base text-slate-400 ml-1">°C</span>
+              </div>
+            </div>
+          </div>
+        </Card>
       </div>
     </div>
   );
