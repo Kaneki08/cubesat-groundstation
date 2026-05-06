@@ -7,6 +7,11 @@ import asyncio
 import requests
 import zmq
 import numpy as np
+from enum import IntEnum
+
+class PacketType(IntEnum):
+    PACKET_IMU = 1
+    PACKET_TC = 2
 
 FASTAPI_URL = "http://127.0.0.1:8000/ingest"
 HEADER_SIZE = 10
@@ -22,10 +27,10 @@ def decode_header(packet: bytes):
     
     return {
         'sat_id': packet[0],
-        'packet_type': packet[1],
-        'sequence': int.from_bytes(packet[2:4], 'big'),
-        'timestamp': int.from_bytes(packet[4:8], 'big'),
-        'payload_len': packet[10]
+        'packet_type': packet_type,
+        'sequence': int.from_bytes(packet[2:4], 'little'),
+        'timestamp': int.from_bytes(packet[4:8], 'little'),
+        'payload_len': packet[9]
     }
 
 def decode_content(packet_data: bytes):
@@ -62,13 +67,15 @@ def main():
 
         try:
             header = decode_header(data)
-            text = decode_content(data).decode("utf-8", errors="ignore")
+            content = decode_content(data, header['packet_type'])
             print(header)
-            print(text)
+
+            for k, v in content.items():
+                print(k, v)
 
             payload = {
                 "header": header,
-                "content": text
+                "content": content
             }
 
             try:
@@ -85,7 +92,7 @@ class HeartbeatMonitor:
     HEARTBEAT_TYPE = 0xAA
 
     def __init__(self):
-        self.count = 0;
+        self.count = 0
         self.last_seq = None;
 
     def process_heartbeat_packet(self, packet: bytes):
