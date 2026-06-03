@@ -13,13 +13,15 @@ from lora_RX import lora_RX
 def main():
     # instantiate lora_TX
     tx_flow = lora_TX()
+    rx_flow = lora_RX()
+
+    
 
     print("Starting Lora TX...")
-    t3 = time.time()
     tx_flow.start()
-    t4 = time.time()
 
-    print(f"Start time: {t4 - t3} seconds.")
+    print ("Starting Lora RX...")
+    rx_flow.start()
 
     try:
         while True:
@@ -27,11 +29,11 @@ def main():
 
     except KeyboardInterrupt:
         print("Stopping flowgraph...")
-        t1 = time.time()
         tx_flow.stop()
         tx_flow.wait()
-        t2 = time.time()
-    
+        rx_flow.stop()
+        rx_flow.wait()
+
     print(f"Stop time: {t2 - t1} seconds.")
 
 
