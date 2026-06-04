@@ -34,8 +34,6 @@ def main():
         rx_flow.stop()
         rx_flow.wait()
 
-    print(f"Stop time: {t2 - t1} seconds.")
-
 
 
 
